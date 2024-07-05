@@ -272,7 +272,7 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     sun.position.set(0, 2, 0);
     scene.add(sun);
-    const sunLight = new THREE.PointLight(0xffffff, 2, 100);
+    const sunLight = new THREE.PointLight(0xffffff, 10, 100);
     sunLight.position.set(0, 2, 0);
     //shadow settings
     sunLight.castShadow = true;
