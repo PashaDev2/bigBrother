@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap; // default THREE.PCFShadowMap
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
     new OrbitControls(camera, renderer.domElement);
@@ -25,6 +25,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     const cube = new THREE.Mesh(geometry, material);
     scene.add(cube);
+    cube.receiveShadow = true;
+    cube.castShadow = true;
     camera.position.z = 5;
     camera.position.x = 2;
     camera.position.y = 0;
@@ -58,7 +60,7 @@ document.addEventListener("DOMContentLoaded", () => {
     dL.shadow.camera.near = 0.5;
     dL.shadow.camera.far = 500;
 
-    scene.add(dL);
+    // scene.add(dL);
 
     const aL = new THREE.AmbientLight(0xffffff, 0.1);
     scene.add(aL);
@@ -270,8 +272,14 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     sun.position.set(0, 2, 0);
     scene.add(sun);
-    const sunLight = new THREE.PointLight(0xffffff, 1, 100);
+    const sunLight = new THREE.PointLight(0xffffff, 2, 100);
     sunLight.position.set(0, 2, 0);
+    //shadow settings
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 1512;
+    sunLight.shadow.mapSize.height = 1512;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 500;
     scene.add(sunLight);
     // dL.target = sun;
 
