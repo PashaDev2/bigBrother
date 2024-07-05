@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderer.setPixelRatio(window.devicePixelRatio);
     document.body.appendChild(renderer.domElement);
 
-    const controls = new OrbitControls(camera, renderer.domElement);
+    new OrbitControls(camera, renderer.domElement);
 
     const geometry = new THREE.BoxGeometry();
     const material = new THREE.MeshPhysicalMaterial({
