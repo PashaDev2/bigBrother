@@ -36,7 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
         side: THREE.DoubleSide,
     });
     const wall1 = new THREE.Mesh(new THREE.PlaneGeometry(100, 100, 12, 12), wallMaterial);
-    wall1.position.z = -10;
+    wall1.position.z = -2;
     wall1.position.y = 0;
     wall1.position.x = 10;
     wall1.rotation.x = -0.2;
