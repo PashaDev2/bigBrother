@@ -11,54 +11,7 @@ import "./style.css";
 import * as THREE from "three";
 import { GUI } from "lil-gui";
 import CustomShaderMaterial from "three-custom-shader-material/vanilla";
-
-// const vignetteShader = {
-//     uniforms: {
-//         tDiffuse: { type: "t", value: null },
-//         offset: { type: "f", value: 1.0 },
-//         darkness: { type: "f", value: 1.0 },
-//     },
-
-//     vertexShader: [
-//         "varying vec2 vUv;",
-
-//         "void main() {",
-
-//         "vUv = uv;",
-//         "gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
-
-//         "}",
-//     ].join("\n"),
-
-//     fragmentShader: [
-//         "uniform float offset;",
-//         "uniform float darkness;",
-
-//         "uniform sampler2D tDiffuse;",
-
-//         "varying vec2 vUv;",
-
-//         "void main() {",
-
-//         // Eskil's vignette
-
-//         "vec4 texel = texture2D( tDiffuse, vUv );",
-//         "vec2 uv = ( vUv - vec2( 0.5 ) ) * vec2( offset );",
-//         "gl_FragColor = vec4( mix( texel.rgb, vec3( 1.0 - darkness ), dot( uv, uv ) ), texel.a );",
-
-//         /*
-//     // alternative version from glfx.js
-//     // this one makes more "dusty" look (as opposed to "burned")
-
-//     "vec4 color = texture2D( tDiffuse, vUv );",
-//     "float dist = distance( vUv, vec2( 0.5 ) );",
-//     "color.rgb *= smoothstep( 0.8, offset * 0.799, dist *( darkness + offset ) );",
-//     "gl_FragColor = color;",
-//     */
-
-//         "}",
-//     ].join("\n"),
-// };
+import gsap from "gsap";
 
 document.addEventListener("DOMContentLoaded", async () => {
     const gui = new GUI();
@@ -404,7 +357,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     fogFolder.addColor({ color: "#ff0000" }, "color").onChange((value: string) => {
         fogMaterial.uniforms.base.value = new THREE.Color(value);
     });
-    fogFolder.add(fogMesh.position, "z", -100, 10).name("fog z");
+    fogFolder.add(fogMesh.position, "z", -10, 10).step(0.01).name("fog z");
 
     const fOpts = {
         scale: 10,
@@ -448,8 +401,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     // composer.addPass(blurPass);
     const bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
-        9,
-        0.448,
+        12,
+        0,
         0.001
     );
     bloomPass.renderToScreen = true;
@@ -461,17 +414,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     bloomFolder.add(bloomPass, "radius", 0, 1);
     bloomFolder.add(bloomPass, "threshold", 0, 1);
 
-    // const vignettePass = new ShaderPass(vignetteShader);
-    // vignettePass.uniforms.offset.value = 1.1;
-    // vignettePass.uniforms.darkness.value = 1.2;
-    // composer.addPass(vignettePass);
-
     window.addEventListener("resize", () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
 
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
+
+    let bloomMultiplier = 1;
 
     const animate = () => {
         requestAnimationFrame(animate);
@@ -482,13 +432,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         composer.render();
 
         // rotate sun and sun light
-        // sun.rotation.y += 0.01;
         // sunLight.rotation.y += 0.01;
         // const x = 2 * Math.sin(Date.now() * 0.001);
         // const y = 2 * Math.sin(Date.now() * 0.001);
         // const z = 2 * Math.cos(Date.now() * 0.001);
         // sunLight.position.set(x, y, z);
-        // sun.position.set(x, y, z);
 
         // update fog material
         // fogMaterial.uniforms.threshold.value = THREE.MathUtils.lerp(
@@ -497,14 +445,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         //     0.01
         // );
 
+        // update bloom
+        bloomPass.threshold *= bloomMultiplier;
+
         // controls.update();
     };
     const clock = new THREE.Clock();
+    let initA1Done = false;
+    gui.add({ initA1: () => initA1() }, "initA1").name("init A1");
 
     const handleMouseMove = (event: MouseEvent) => {
+        if (!initA1Done) {
+            return;
+        }
+
+        const d = clock.getDelta() * 0.1;
         const x = (event.clientX / window.innerWidth) * 2 - 1;
         const y = -(event.clientY / window.innerHeight) * 2 + 1;
-        const d = clock.getDelta() * 0.1;
         eyesMaterial.uniforms.uMouse.value.x = x;
         eyesMaterial.uniforms.uMouse.value.y = y;
         eyesMaterial.uniforms.uTime.value += d;
@@ -517,6 +474,40 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     window.addEventListener("mousemove", handleMouseMove);
+    helm.position.y = -0.9;
+    const initA1 = () => {
+        initA1Done = false;
+        const tl = gsap.timeline();
+
+        tl.fromTo(
+            helm.position,
+            {
+                y: -2.9,
+            },
+            {
+                y: 0,
+                duration: 2,
+                ease: "power4.inOut",
+            }
+        );
+
+        tl.fromTo(
+            fogMesh.position,
+            {
+                z: -4.4,
+            },
+            {
+                z: -5,
+                duration: 3,
+                ease: "power2.inOut",
+                onComplete: () => {
+                    initA1Done = true;
+                },
+            }
+        );
+    };
+
+    initA1();
 
     animate();
 });
