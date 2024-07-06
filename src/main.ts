@@ -4,7 +4,7 @@ import {
     ImprovedNoise,
     OrbitControls,
     RenderPass,
-    ShaderPass,
+    UnrealBloomPass,
 } from "three/examples/jsm/Addons.js";
 import Stats from "three/examples/jsm/libs/stats.module.js";
 import "./style.css";
@@ -12,53 +12,53 @@ import * as THREE from "three";
 import { GUI } from "lil-gui";
 import CustomShaderMaterial from "three-custom-shader-material/vanilla";
 
-const vignetteShader = {
-    uniforms: {
-        tDiffuse: { type: "t", value: null },
-        offset: { type: "f", value: 1.0 },
-        darkness: { type: "f", value: 1.0 },
-    },
+// const vignetteShader = {
+//     uniforms: {
+//         tDiffuse: { type: "t", value: null },
+//         offset: { type: "f", value: 1.0 },
+//         darkness: { type: "f", value: 1.0 },
+//     },
 
-    vertexShader: [
-        "varying vec2 vUv;",
+//     vertexShader: [
+//         "varying vec2 vUv;",
 
-        "void main() {",
+//         "void main() {",
 
-        "vUv = uv;",
-        "gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
+//         "vUv = uv;",
+//         "gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
 
-        "}",
-    ].join("\n"),
+//         "}",
+//     ].join("\n"),
 
-    fragmentShader: [
-        "uniform float offset;",
-        "uniform float darkness;",
+//     fragmentShader: [
+//         "uniform float offset;",
+//         "uniform float darkness;",
 
-        "uniform sampler2D tDiffuse;",
+//         "uniform sampler2D tDiffuse;",
 
-        "varying vec2 vUv;",
+//         "varying vec2 vUv;",
 
-        "void main() {",
+//         "void main() {",
 
-        // Eskil's vignette
+//         // Eskil's vignette
 
-        "vec4 texel = texture2D( tDiffuse, vUv );",
-        "vec2 uv = ( vUv - vec2( 0.5 ) ) * vec2( offset );",
-        "gl_FragColor = vec4( mix( texel.rgb, vec3( 1.0 - darkness ), dot( uv, uv ) ), texel.a );",
+//         "vec4 texel = texture2D( tDiffuse, vUv );",
+//         "vec2 uv = ( vUv - vec2( 0.5 ) ) * vec2( offset );",
+//         "gl_FragColor = vec4( mix( texel.rgb, vec3( 1.0 - darkness ), dot( uv, uv ) ), texel.a );",
 
-        /*
-    // alternative version from glfx.js
-    // this one makes more "dusty" look (as opposed to "burned")
+//         /*
+//     // alternative version from glfx.js
+//     // this one makes more "dusty" look (as opposed to "burned")
 
-    "vec4 color = texture2D( tDiffuse, vUv );",
-    "float dist = distance( vUv, vec2( 0.5 ) );",
-    "color.rgb *= smoothstep( 0.8, offset * 0.799, dist *( darkness + offset ) );",
-    "gl_FragColor = color;",
-    */
+//     "vec4 color = texture2D( tDiffuse, vUv );",
+//     "float dist = distance( vUv, vec2( 0.5 ) );",
+//     "color.rgb *= smoothstep( 0.8, offset * 0.799, dist *( darkness + offset ) );",
+//     "gl_FragColor = color;",
+//     */
 
-        "}",
-    ].join("\n"),
-};
+//         "}",
+//     ].join("\n"),
+// };
 
 document.addEventListener("DOMContentLoaded", async () => {
     const gui = new GUI();
@@ -71,8 +71,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const renderer = new THREE.WebGLRenderer({
         antialias: true,
     });
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // default THREE.PCFShadowMap
+    // renderer.shadowMap.enabled = true;
+    // renderer.shadowMap.type = THREE.PCFSoftShadowMap; // default THREE.PCFShadowMap
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
@@ -83,6 +83,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     //update camera
     const camera = model.cameras[0] as THREE.PerspectiveCamera;
+    gui.add(camera, "fov", 0, 180)
+        .name("camera fov")
+        .onChange(() => {
+            camera.updateProjectionMatrix();
+        });
     const aspect = window.innerWidth / window.innerHeight;
     camera.aspect = aspect;
     camera.updateProjectionMatrix();
@@ -102,42 +107,73 @@ document.addEventListener("DOMContentLoaded", async () => {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enabled = false;
 
-    gui.add(camera, "fov", 0, 180).name("camera fov");
     gui.add(controls, "enabled").name("orbit controls");
 
     // custom shader with emissive
     const eyesMaterial = new CustomShaderMaterial({
-        baseMaterial: new THREE.MeshPhysicalMaterial({
-            color: new THREE.Color("black"),
+        baseMaterial: new THREE.MeshStandardMaterial({
+            depthTest: true,
+            depthWrite: true,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            emissive: new THREE.Color("red"),
+            emissiveIntensity: 1,
         }),
+        silent: true,
         uniforms: {
-            time: { value: 0 },
+            uTime: { value: 0 },
             uMouse: { value: new THREE.Vector2() },
+            uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+            uColor: { value: new THREE.Color("red") },
+            uFolloff: { value: 3.49 },
+            uFresnelPower: { value: 0.51 },
         },
         vertexShader: /* glsl */ `
         varying vec2 vUv;
         // varying vec3 vNormal;
+        varying vec3 vPosition;
+
           void main() {
             vUv = uv;
-            // vNormal = normal;
+            vNormal = normal;
+            // vPosition = position;
             gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
           }
     `,
         fragmentShader: /* glsl */ `
-          uniform float time;
-          uniform vec2 uMouse;
-          varying vec2 vUv;
+        uniform vec2 uMouse;
+        uniform vec2 uResolution;
+        uniform float uTime;
+        uniform vec3 uColor;
+        uniform float uFolloff;
+        uniform float uFresnelPower;
 
-          float sdCircle( vec2 p, float r ) {
-            return length( p ) - r;
-          }
+        varying vec3 vPosition;
+        // varying vec3 vNormal;
+        varying vec2 vUv;
 
-          void main() {
-            vec3 p = gl_FragCoord.xyz;
-            vec3 color = vec3( 1.0 );
+        void main()
+        {
+            float time = uTime * 0.1;
+            vec2 uv = gl_FragCoord.xy / uResolution.xy;
+            vec3 color = uColor;
+            vec3 normal1 = normalize(vNormal);
+            if(!gl_FrontFacing) normal1 *= -1.0;
 
-            csm_FragColor = vec4( color, 1.0 );
-          }
+            // Fresnel
+            vec3 viewDirection = normalize(vPosition - cameraPosition);
+            float fresnel = dot(viewDirection, normal1) + 1.0;
+            fresnel *= pow(fresnel, uFresnelPower);
+
+            // Folloff
+            float falloff = smoothstep(uFolloff, 0.0, fresnel);
+            fresnel *= falloff; 
+
+            // Final color
+            csm_FragColor = vec4(color, fresnel);
+            #include <tonemapping_fragment>
+            #include <colorspace_fragment>
+        } 
     `,
     });
 
@@ -149,30 +185,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     materialFolder.add(helmMaterial, "roughness", 0, 1);
     materialFolder.add(helmMaterial, "metalness", 0, 1);
     materialFolder.add(helmMaterial, "ior", 0, 2);
-    helmMaterial.ior = 0.98;
+    helmMaterial.ior = 1.98;
     materialFolder.add(helmMaterial, "reflectivity", 0, 1);
     materialFolder.add(helmMaterial, "clearcoat", 0, 1);
     materialFolder.add(helmMaterial, "transmission", 0, 1);
-    materialFolder.close();
 
-    const wallMaterial = new THREE.MeshStandardMaterial({
-        color: new THREE.Color("black"),
-        side: THREE.DoubleSide,
+    // debug eyes material
+    const eyesFolder = gui.addFolder("eyes");
+    eyesFolder.add(eyesMaterial.uniforms.uFolloff, "value", 0, 10).name("eyes folloff");
+    eyesFolder.add(eyesMaterial.uniforms.uFresnelPower, "value", 0, 10).name("eyes fresnel power");
+    eyesFolder.addColor({ color: "#000" }, "color").onChange((value: string) => {
+        eyesMaterial.uniforms.uColor.value = new THREE.Color(value);
     });
-    const wall1 = new THREE.Mesh(new THREE.PlaneGeometry(100, 100, 12, 12), wallMaterial);
-    wall1.position.z = -3;
-    wall1.position.y = 0;
-    wall1.position.x = 10;
-    wall1.rotation.x = -0.2;
-    wall1.receiveShadow = true;
-    scene.add(wall1);
-
-    const wall2 = new THREE.Mesh(new THREE.PlaneGeometry(100, 100, 12, 12), wallMaterial);
-    wall2.rotation.x = Math.PI / 2;
-    wall2.position.x = 0;
-    wall2.position.y = -2.5;
-    wall2.receiveShadow = true;
-    scene.add(wall2);
+    materialFolder.close();
 
     const aL = new THREE.AmbientLight(new THREE.Color("#000"), 1.5);
     scene.add(aL);
@@ -349,7 +374,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     `;
 
-    const fogGeometry = new THREE.BoxGeometry(100, 100, 100);
+    const fogGeometry = new THREE.BoxGeometry(2, 1, 1);
     const fogMaterial = new THREE.RawShaderMaterial({
         glslVersion: THREE.GLSL3,
         uniforms: {
@@ -357,21 +382,23 @@ document.addEventListener("DOMContentLoaded", async () => {
             map: { value: texture },
             cameraPos: { value: new THREE.Vector3() },
             threshold: { value: 0.01 },
-            opacity: { value: 0.01 },
+            opacity: { value: 0.001 },
             range: { value: 0.1 },
-            steps: { value: 50 },
+            steps: { value: 10 },
             frame: { value: 0 },
         },
         vertexShader,
         fragmentShader,
-        side: THREE.BackSide,
+        side: THREE.DoubleSide,
         transparent: true,
-        depthTest: false,
-        depthWrite: false,
+        // opacity: 1,
+        // depthTest: false,
+        // depthWrite: true,
     });
 
     const fogMesh = new THREE.Mesh(fogGeometry, fogMaterial);
     scene.add(fogMesh);
+    fogMesh.position.z = -4.85;
     fogMesh.scale.set(10, 10, 10);
     fogMaterial.uniforms.cameraPos.value = camera.position;
 
@@ -383,7 +410,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     fogFolder.add(fogMaterial.uniforms.steps, "value", 0, 100).name("fog steps");
     fogFolder.addColor({ color: "#ff0000" }, "color").onChange((value: string) => {
         fogMaterial.uniforms.base.value = new THREE.Color(value);
+        sunLight.color = new THREE.Color(value);
     });
+    fogFolder.add(fogMesh.position, "z", -100, 10).name("fog z");
+
     const fOpts = {
         scale: 10,
     };
@@ -393,20 +423,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     fogFolder.close();
 
     // sun
-    const sun = new THREE.Mesh(
-        new THREE.SphereGeometry(0.2, 32, 32),
-        new THREE.MeshBasicMaterial({
-            color: 0xffffff,
-            transparent: true,
-            blending: THREE.AdditiveBlending,
-        })
-    );
-    sun.position.set(0, 2, 0);
     // scene.add(sun);
-    const sunLight = new THREE.PointLight(0xffffff, 50, 100);
-    sunLight.position.set(0, 2, 0);
+    const sunLight = new THREE.PointLight(new THREE.Color("red"), 10, 100);
+    sunLight.position.set(1, 1.5, -1);
     //shadow settings
-    sunLight.castShadow = true;
+    // sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 512;
     sunLight.shadow.mapSize.height = 512;
     sunLight.shadow.camera.near = 0.5;
@@ -427,10 +448,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     const renderPass = new RenderPass(scene, camera);
     composer.addPass(renderPass);
 
-    const vignettePass = new ShaderPass(vignetteShader);
-    vignettePass.uniforms.offset.value = 0.1;
-    vignettePass.uniforms.darkness.value = 1.2;
-    composer.addPass(vignettePass);
+    //blur pass
+    // const blurPass = new ShaderPass(bloomShader);
+    // composer.addPass(blurPass);
+    const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        9,
+        0.448,
+        0.041
+    );
+    bloomPass.renderToScreen = true;
+    composer.addPass(bloomPass);
+
+    // debug bloom
+    const bloomFolder = gui.addFolder("bloom");
+    bloomFolder.add(bloomPass, "strength", 0, 10);
+    bloomFolder.add(bloomPass, "radius", 0, 1);
+    bloomFolder.add(bloomPass, "threshold", 0, 1);
+
+    // const vignettePass = new ShaderPass(vignetteShader);
+    // vignettePass.uniforms.offset.value = 1.1;
+    // vignettePass.uniforms.darkness.value = 1.2;
+    // composer.addPass(vignettePass);
 
     window.addEventListener("resize", () => {
         camera.aspect = window.innerWidth / window.innerHeight;
@@ -444,17 +483,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         stats.update();
 
-        renderer.render(scene, camera);
-        // composer.render();
+        // renderer.render(scene, camera);
+        composer.render();
 
         // rotate sun and sun light
-        sun.rotation.y += 0.01;
-        sunLight.rotation.y += 0.01;
-        const x = 2 * Math.sin(Date.now() * 0.001);
-        const y = 2 * Math.sin(Date.now() * 0.001);
-        const z = 2 * Math.cos(Date.now() * 0.001);
-        sunLight.position.set(x, y, z);
-        sun.position.set(x, y, z);
+        // sun.rotation.y += 0.01;
+        // sunLight.rotation.y += 0.01;
+        // const x = 2 * Math.sin(Date.now() * 0.001);
+        // const y = 2 * Math.sin(Date.now() * 0.001);
+        // const z = 2 * Math.cos(Date.now() * 0.001);
+        // sunLight.position.set(x, y, z);
+        // sun.position.set(x, y, z);
 
         // update fog material
         fogMaterial.uniforms.threshold.value = THREE.MathUtils.lerp(
@@ -463,16 +502,21 @@ document.addEventListener("DOMContentLoaded", async () => {
             0.01
         );
 
-        controls.update();
+        // controls.update();
     };
     const clock = new THREE.Clock();
+
     const handleMouseMove = (event: MouseEvent) => {
         const x = (event.clientX / window.innerWidth) * 2 - 1;
         const y = -(event.clientY / window.innerHeight) * 2 + 1;
         const d = clock.getDelta() * 0.1;
         eyesMaterial.uniforms.uMouse.value.x = x;
         eyesMaterial.uniforms.uMouse.value.y = y;
-        eyesMaterial.uniforms.time.value += d;
+        eyesMaterial.uniforms.uTime.value += d;
+
+        // rotate helm
+        helm.rotation.z = THREE.MathUtils.lerp(helm.rotation.z, x, 0.1);
+        helm.rotation.x = THREE.MathUtils.lerp(helm.rotation.x, -y - Math.PI / 2, 0.1);
 
         // eyeObj.rotation.z = x;
     };
