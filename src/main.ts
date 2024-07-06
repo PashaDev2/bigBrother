@@ -381,6 +381,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     fogFolder.add(fogMaterial.uniforms.opacity, "value", 0, 1).name("fog opacity");
     fogFolder.add(fogMaterial.uniforms.range, "value", 0, 1).name("fog range");
     fogFolder.add(fogMaterial.uniforms.steps, "value", 0, 100).name("fog steps");
+    fogFolder.addColor({ color: "#ff0000" }, "color").onChange((value: string) => {
+        fogMaterial.uniforms.base.value = new THREE.Color(value);
+    });
     const fOpts = {
         scale: 10,
     };
@@ -417,13 +420,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     sunFolder.add(sunLight.shadow.camera, "far", 0, 1000);
     sunFolder.add(sunLight.shadow.mapSize, "width", 0, 2048);
     sunFolder.add(sunLight.shadow.mapSize, "height", 0, 2048);
-    // size of the shpere
-    const opt = {
-        scale: 1,
-    };
-    sunFolder.add(opt, "scale", 0, 10).onChange((value: number) => {
-        sun.scale.set(value, value, value);
-    });
     sunFolder.close();
 
     // post processing
