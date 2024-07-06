@@ -491,6 +491,27 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         );
 
+        const dObj = {
+            mouseX: 0,
+            mouseY: 0,
+        };
+
+        tl.to(dObj, {
+            mouseX: 0.5,
+            mouseY: 0.5,
+            duration: 2,
+            ease: "power4.inOut",
+            onUpdate: () => {
+                // rotate helm
+                helm.rotation.z = THREE.MathUtils.lerp(helm.rotation.z, dObj.mouseX, 0.1);
+                helm.rotation.x = THREE.MathUtils.lerp(
+                    helm.rotation.x,
+                    -dObj.mouseY - Math.PI / 2,
+                    0.1
+                );
+            },
+        });
+
         tl.fromTo(
             fogMesh.position,
             {
@@ -505,6 +526,22 @@ document.addEventListener("DOMContentLoaded", async () => {
                 },
             }
         );
+
+        tl.to(dObj, {
+            mouseX: 0,
+            mouseY: 0,
+            duration: 2,
+            ease: "power4.inOut",
+            onUpdate: () => {
+                // rotate helm
+                helm.rotation.z = THREE.MathUtils.lerp(helm.rotation.z, dObj.mouseX, 0.1);
+                helm.rotation.x = THREE.MathUtils.lerp(
+                    helm.rotation.x,
+                    -dObj.mouseY - Math.PI / 2,
+                    0.1
+                );
+            },
+        });
     };
 
     initA1();
