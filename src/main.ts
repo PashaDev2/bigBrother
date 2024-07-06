@@ -1,9 +1,22 @@
-import { ImprovedNoise, OrbitControls } from "three/examples/jsm/Addons.js";
+import {
+    EffectComposer,
+    ImprovedNoise,
+    OrbitControls,
+    RenderPass,
+    ShaderPass,
+} from "three/examples/jsm/Addons.js";
+import { vignetteShader } from "./vignetteShader.js";
+//stats
+import Stats from "three/examples/jsm/libs/stats.module.js";
 import "./style.css";
 import * as THREE from "three";
+import { GUI } from "lil-gui";
 
 document.addEventListener("DOMContentLoaded", () => {
+    const gui = new GUI();
     const scene = new THREE.Scene();
+    const stats = new Stats();
+    document.body.appendChild(stats.dom);
     const aspect = window.innerWidth / window.innerHeight;
     const camera = new THREE.OrthographicCamera(-2 * aspect, 2 * aspect, 2.4, -2.4, 1, 1000);
     const renderer = new THREE.WebGLRenderer({
@@ -17,14 +30,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
     new OrbitControls(camera, renderer.domElement);
 
-    const geometry = new THREE.BoxGeometry();
+    const geometry = new THREE.TorusKnotGeometry(0.5, 0.1, 100, 16);
     const material = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color("#002222"),
-        roughness: 0.9,
-        metalness: 0.1,
+        color: new THREE.Color("#000"),
+        // make glass like material
+        roughness: 1,
+        metalness: 0,
+        ior: 2,
+        reflectivity: 1,
+        clearcoat: 0,
+        transmission: 1,
     });
     const cube = new THREE.Mesh(geometry, material);
     scene.add(cube);
+
+    // debug material
+    gui.add(material, "roughness", 0, 1);
+    gui.add(material, "metalness", 0, 1);
+    gui.add(material, "ior", 1, 2);
+    gui.add(material, "reflectivity", 0, 1);
+    gui.add(material, "clearcoat", 0, 1);
+    gui.add(material, "transmission", 0, 1);
+
     cube.receiveShadow = true;
     cube.castShadow = true;
     camera.position.z = 5;
@@ -36,7 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
         side: THREE.DoubleSide,
     });
     const wall1 = new THREE.Mesh(new THREE.PlaneGeometry(100, 100, 12, 12), wallMaterial);
-    wall1.position.z = -2;
+    wall1.position.z = -3;
     wall1.position.y = 0;
     wall1.position.x = 10;
     wall1.rotation.x = -0.2;
@@ -50,24 +77,11 @@ document.addEventListener("DOMContentLoaded", () => {
     wall2.receiveShadow = true;
     scene.add(wall2);
 
-    // light
-    const dL = new THREE.DirectionalLight(0xffffff, 10);
-    dL.position.set(0, 2, 0);
-    dL.castShadow = true;
-    // shadow settings
-    dL.shadow.mapSize.width = 1512;
-    dL.shadow.mapSize.height = 1512;
-    dL.shadow.camera.near = 0.5;
-    dL.shadow.camera.far = 500;
-
-    // scene.add(dL);
-
-    const aL = new THREE.AmbientLight(0xffffff, 0.1);
+    const aL = new THREE.AmbientLight(0xffffff, 1.5);
     scene.add(aL);
 
     //fog
     // Texture
-
     const size = 128;
     const data = new Uint8Array(size * size * size);
 
@@ -238,17 +252,17 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     `;
 
-    const fogGeometry = new THREE.BoxGeometry(10, 10, 10);
+    const fogGeometry = new THREE.BoxGeometry(100, 100, 100);
     const fogMaterial = new THREE.RawShaderMaterial({
         glslVersion: THREE.GLSL3,
         uniforms: {
             base: { value: new THREE.Color("black") },
             map: { value: texture },
             cameraPos: { value: new THREE.Vector3() },
-            threshold: { value: 0.15 },
-            opacity: { value: 0.01 },
+            threshold: { value: 0.2 },
+            opacity: { value: 0.1 },
             range: { value: 0.1 },
-            steps: { value: 100 },
+            steps: { value: 10 },
             frame: { value: 0 },
         },
         vertexShader,
@@ -261,6 +275,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const fogMesh = new THREE.Mesh(fogGeometry, fogMaterial);
     scene.add(fogMesh);
+    fogMaterial.uniforms.cameraPos.value = camera.position;
 
     // sun
     const sun = new THREE.Mesh(
@@ -272,16 +287,25 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     sun.position.set(0, 2, 0);
     scene.add(sun);
-    const sunLight = new THREE.PointLight(0xffffff, 10, 100);
+    const sunLight = new THREE.PointLight(0xffffff, 50, 100);
     sunLight.position.set(0, 2, 0);
     //shadow settings
     sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = 1512;
-    sunLight.shadow.mapSize.height = 1512;
+    sunLight.shadow.mapSize.width = 512;
+    sunLight.shadow.mapSize.height = 512;
     sunLight.shadow.camera.near = 0.5;
     sunLight.shadow.camera.far = 500;
     scene.add(sunLight);
-    // dL.target = sun;
+
+    // post processing
+    const composer = new EffectComposer(renderer);
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    const vignettePass = new ShaderPass(vignetteShader);
+    vignettePass.uniforms.offset.value = 0.1;
+    vignettePass.uniforms.darkness.value = 1.2;
+    composer.addPass(vignettePass);
 
     window.addEventListener("resize", () => {
         // orthographic camera
@@ -296,25 +320,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const animate = () => {
         requestAnimationFrame(animate);
+
+        stats.update();
+
         cube.rotation.x += 0.01;
         cube.rotation.y += 0.01;
-        renderer.render(scene, camera);
+        // renderer.render(scene, camera);
+        composer.render();
 
         // rotate sun and sun light
         sun.rotation.y += 0.01;
         sunLight.rotation.y += 0.01;
-        sunLight.position.set(
-            2 * Math.sin(Date.now() * 0.001),
-            2 * Math.sin(Date.now() * 0.001),
-            2 * Math.cos(Date.now() * 0.001)
+        const x = 2 * Math.sin(Date.now() * 0.001);
+        const y = 2 * Math.sin(Date.now() * 0.001);
+        const z = 2 * Math.cos(Date.now() * 0.001);
+        sunLight.position.set(x, y, z);
+        sun.position.set(x, y, z);
+
+        // update fog material
+        fogMaterial.uniforms.threshold.value = THREE.MathUtils.lerp(
+            fogMaterial.uniforms.threshold.value,
+            0.2 + 0.1 * Math.sin(Date.now() * 0.001),
+            0.01
         );
-        sun.position.set(
-            2 * Math.sin(Date.now() * 0.001),
-            2 * Math.sin(Date.now() * 0.001),
-            2 * Math.cos(Date.now() * 0.001)
-        );
-        // fogMaterial.uniforms.cameraPos.value = camera.position;
-        // fogMaterial.uniforms.frame.value += 0.1;
+
+        // modify torus knot geometry
+        const time = Date.now() * 0.001;
+        const scale = Math.sin(time) * 0.1 + 1;
+
+        cube.scale.set(scale, scale, scale);
     };
     animate();
 });
