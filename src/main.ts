@@ -5,7 +5,7 @@ import {
     RenderPass,
     ShaderPass,
 } from "three/examples/jsm/Addons.js";
-import { vignetteShader } from "./vignetteShader.js";
+import { vignetteShader } from "./vignetteShader";
 //stats
 import Stats from "three/examples/jsm/libs/stats.module.js";
 import "./style.css";
