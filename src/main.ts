@@ -1,5 +1,6 @@
 import {
     EffectComposer,
+    GLTFLoader,
     ImprovedNoise,
     OrbitControls,
     RenderPass,
@@ -9,6 +10,7 @@ import Stats from "three/examples/jsm/libs/stats.module.js";
 import "./style.css";
 import * as THREE from "three";
 import { GUI } from "lil-gui";
+import CustomShaderMaterial from "three-custom-shader-material/vanilla";
 
 const vignetteShader = {
     uniforms: {
@@ -58,13 +60,14 @@ const vignetteShader = {
     ].join("\n"),
 };
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     const gui = new GUI();
     const scene = new THREE.Scene();
     const stats = new Stats();
     document.body.appendChild(stats.dom);
-    const aspect = window.innerWidth / window.innerHeight;
-    const camera = new THREE.OrthographicCamera(-2 * aspect, 2 * aspect, 2.4, -2.4, 1, 1000);
+    // const aspect = window.innerWidth / window.innerHeight;
+    // const camera = new THREE.OrthographicCamera(-2 * aspect, 2 * aspect, 2.4, -2.4, 1, 1000);
+    // const camera = new THREE.PerspectiveCamera(25, aspect, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({
         antialias: true,
     });
@@ -74,36 +77,84 @@ document.addEventListener("DOMContentLoaded", () => {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
-    new OrbitControls(camera, renderer.domElement);
+    const loader = new GLTFLoader();
 
-    const geometry = new THREE.TorusKnotGeometry(0.5, 0.1, 100, 16);
-    const material = new THREE.MeshPhysicalMaterial({
+    const model = await loader.loadAsync("/three.js/Helmet.glb");
+
+    //update camera
+    const camera = model.cameras[0] as THREE.PerspectiveCamera;
+    const aspect = window.innerWidth / window.innerHeight;
+    camera.aspect = aspect;
+    camera.updateProjectionMatrix();
+    const helm = model.scene.children[0] as THREE.Mesh;
+    const helmMaterial = new THREE.MeshPhysicalMaterial({
         color: new THREE.Color("#000"),
-        // make glass like material
-        roughness: 1,
-        metalness: 0,
-        ior: 2,
+        roughness: 0.973,
+        metalness: 0.254,
+        ior: 0.87,
         reflectivity: 1,
         clearcoat: 0,
         transmission: 1,
     });
-    const cube = new THREE.Mesh(geometry, material);
-    scene.add(cube);
+    helm.material = helmMaterial;
+    scene.add(model.scene);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enabled = false;
+
+    gui.add(camera, "fov", 0, 180).name("camera fov");
+    gui.add(controls, "enabled").name("orbit controls");
+
+    // custom shader with emissive
+    const eyesMaterial = new CustomShaderMaterial({
+        baseMaterial: new THREE.MeshPhysicalMaterial({
+            color: new THREE.Color("black"),
+        }),
+        uniforms: {
+            time: { value: 0 },
+            uMouse: { value: new THREE.Vector2() },
+        },
+        vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        // varying vec3 vNormal;
+          void main() {
+            vUv = uv;
+            // vNormal = normal;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+          }
+    `,
+        fragmentShader: /* glsl */ `
+          uniform float time;
+          uniform vec2 uMouse;
+          varying vec2 vUv;
+
+          float sdCircle( vec2 p, float r ) {
+            return length( p ) - r;
+          }
+
+          void main() {
+            vec3 p = gl_FragCoord.xyz;
+            vec3 color = vec3( 1.0 );
+
+            csm_FragColor = vec4( color, 1.0 );
+          }
+    `,
+    });
+
+    const eyeObj = model.scene.getObjectByName("EYES") as THREE.Mesh;
+    eyeObj.material = eyesMaterial;
 
     // debug material
-    gui.add(material, "roughness", 0, 1);
-    gui.add(material, "metalness", 0, 1);
-    gui.add(material, "ior", 1, 2);
-    gui.add(material, "reflectivity", 0, 1);
-    gui.add(material, "clearcoat", 0, 1);
-    gui.add(material, "transmission", 0, 1);
+    const materialFolder = gui.addFolder("material");
+    materialFolder.add(helmMaterial, "roughness", 0, 1);
+    materialFolder.add(helmMaterial, "metalness", 0, 1);
+    materialFolder.add(helmMaterial, "ior", 0, 2);
+    helmMaterial.ior = 0.98;
+    materialFolder.add(helmMaterial, "reflectivity", 0, 1);
+    materialFolder.add(helmMaterial, "clearcoat", 0, 1);
+    materialFolder.add(helmMaterial, "transmission", 0, 1);
+    materialFolder.close();
 
-    cube.receiveShadow = true;
-    cube.castShadow = true;
-    camera.position.z = 5;
-    camera.position.x = 2;
-    camera.position.y = 0;
-    camera.lookAt(cube.position);
     const wallMaterial = new THREE.MeshStandardMaterial({
         color: new THREE.Color("black"),
         side: THREE.DoubleSide,
@@ -123,7 +174,7 @@ document.addEventListener("DOMContentLoaded", () => {
     wall2.receiveShadow = true;
     scene.add(wall2);
 
-    const aL = new THREE.AmbientLight(0xffffff, 1.5);
+    const aL = new THREE.AmbientLight(new THREE.Color("#000"), 1.5);
     scene.add(aL);
 
     //fog
@@ -302,13 +353,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const fogMaterial = new THREE.RawShaderMaterial({
         glslVersion: THREE.GLSL3,
         uniforms: {
-            base: { value: new THREE.Color("black") },
+            base: { value: new THREE.Color("red") },
             map: { value: texture },
             cameraPos: { value: new THREE.Vector3() },
-            threshold: { value: 0.2 },
-            opacity: { value: 0.1 },
+            threshold: { value: 0.01 },
+            opacity: { value: 0.01 },
             range: { value: 0.1 },
-            steps: { value: 10 },
+            steps: { value: 50 },
             frame: { value: 0 },
         },
         vertexShader,
@@ -321,7 +372,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const fogMesh = new THREE.Mesh(fogGeometry, fogMaterial);
     scene.add(fogMesh);
+    fogMesh.scale.set(10, 10, 10);
     fogMaterial.uniforms.cameraPos.value = camera.position;
+
+    // debug fog
+    const fogFolder = gui.addFolder("fog");
+    fogFolder.add(fogMaterial.uniforms.threshold, "value", 0, 1).name("fog threshold");
+    fogFolder.add(fogMaterial.uniforms.opacity, "value", 0, 1).name("fog opacity");
+    fogFolder.add(fogMaterial.uniforms.range, "value", 0, 1).name("fog range");
+    fogFolder.add(fogMaterial.uniforms.steps, "value", 0, 100).name("fog steps");
+    const fOpts = {
+        scale: 10,
+    };
+    fogFolder.add(fOpts, "scale", 0, 10).onChange(value => {
+        fogMesh.scale.set(value, value, value);
+    });
+    fogFolder.close();
 
     // sun
     const sun = new THREE.Mesh(
@@ -329,10 +395,11 @@ document.addEventListener("DOMContentLoaded", () => {
         new THREE.MeshBasicMaterial({
             color: 0xffffff,
             transparent: true,
+            blending: THREE.AdditiveBlending,
         })
     );
     sun.position.set(0, 2, 0);
-    scene.add(sun);
+    // scene.add(sun);
     const sunLight = new THREE.PointLight(0xffffff, 50, 100);
     sunLight.position.set(0, 2, 0);
     //shadow settings
@@ -342,6 +409,22 @@ document.addEventListener("DOMContentLoaded", () => {
     sunLight.shadow.camera.near = 0.5;
     sunLight.shadow.camera.far = 500;
     scene.add(sunLight);
+
+    // debug sun
+    const sunFolder = gui.addFolder("sun");
+    sunFolder.add(sunLight, "intensity", 0, 100);
+    sunFolder.add(sunLight.shadow.camera, "near", 0, 10);
+    sunFolder.add(sunLight.shadow.camera, "far", 0, 1000);
+    sunFolder.add(sunLight.shadow.mapSize, "width", 0, 2048);
+    sunFolder.add(sunLight.shadow.mapSize, "height", 0, 2048);
+    // size of the shpere
+    const opt = {
+        scale: 1,
+    };
+    sunFolder.add(opt, "scale", 0, 10).onChange(value => {
+        sun.scale.set(value, value, value);
+    });
+    sunFolder.close();
 
     // post processing
     const composer = new EffectComposer(renderer);
@@ -354,13 +437,9 @@ document.addEventListener("DOMContentLoaded", () => {
     composer.addPass(vignettePass);
 
     window.addEventListener("resize", () => {
-        // orthographic camera
-        const aspect = window.innerWidth / window.innerHeight;
-        camera.left = -2 * aspect;
-        camera.right = 2 * aspect;
-        camera.top = 2.4;
-        camera.bottom = -2.4;
+        camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
+
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
@@ -369,10 +448,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         stats.update();
 
-        cube.rotation.x += 0.01;
-        cube.rotation.y += 0.01;
-        // renderer.render(scene, camera);
-        composer.render();
+        renderer.render(scene, camera);
+        // composer.render();
 
         // rotate sun and sun light
         sun.rotation.y += 0.01;
@@ -390,11 +467,21 @@ document.addEventListener("DOMContentLoaded", () => {
             0.01
         );
 
-        // modify torus knot geometry
-        const time = Date.now() * 0.001;
-        const scale = Math.sin(time) * 0.1 + 1;
-
-        cube.scale.set(scale, scale, scale);
+        controls.update();
     };
+    const clock = new THREE.Clock();
+    const handleMouseMove = (event: MouseEvent) => {
+        const x = (event.clientX / window.innerWidth) * 2 - 1;
+        const y = -(event.clientY / window.innerHeight) * 2 + 1;
+        const d = clock.getDelta() * 0.1;
+        eyesMaterial.uniforms.uMouse.value.x = x;
+        eyesMaterial.uniforms.uMouse.value.y = y;
+        eyesMaterial.uniforms.time.value += d;
+
+        // eyeObj.rotation.z = x;
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+
     animate();
 });
