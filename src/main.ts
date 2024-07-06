@@ -70,6 +70,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     // const camera = new THREE.PerspectiveCamera(25, aspect, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({
         antialias: true,
+        powerPreference: "high-performance",
+        alpha: true,
     });
     // renderer.shadowMap.enabled = true;
     // renderer.shadowMap.type = THREE.PCFSoftShadowMap; // default THREE.PCFShadowMap
@@ -92,14 +94,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     camera.aspect = aspect;
     camera.updateProjectionMatrix();
     const helm = model.scene.children[0] as THREE.Mesh;
-    const helmMaterial = new THREE.MeshPhysicalMaterial({
+    const helmMaterial = new THREE.MeshStandardMaterial({
         color: new THREE.Color("#000"),
-        roughness: 0.973,
-        metalness: 0.254,
-        ior: 0.87,
-        reflectivity: 1,
-        clearcoat: 0,
-        transmission: 1,
+        roughness: 1,
+        metalness: 0.484,
     });
     helm.material = helmMaterial;
     scene.add(model.scene);
@@ -116,7 +114,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             depthWrite: true,
             transparent: true,
             blending: THREE.AdditiveBlending,
-            emissive: new THREE.Color("red"),
+            emissive: new THREE.Color("#fff"),
             emissiveIntensity: 1,
         }),
         silent: true,
@@ -124,7 +122,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             uTime: { value: 0 },
             uMouse: { value: new THREE.Vector2() },
             uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
-            uColor: { value: new THREE.Color("red") },
+            uColor: { value: new THREE.Color("#bf7a63") },
             uFolloff: { value: 3.49 },
             uFresnelPower: { value: 0.51 },
         },
@@ -184,11 +182,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     const materialFolder = gui.addFolder("material");
     materialFolder.add(helmMaterial, "roughness", 0, 1);
     materialFolder.add(helmMaterial, "metalness", 0, 1);
-    materialFolder.add(helmMaterial, "ior", 0, 2);
-    helmMaterial.ior = 1.98;
-    materialFolder.add(helmMaterial, "reflectivity", 0, 1);
-    materialFolder.add(helmMaterial, "clearcoat", 0, 1);
-    materialFolder.add(helmMaterial, "transmission", 0, 1);
 
     // debug eyes material
     const eyesFolder = gui.addFolder("eyes");
@@ -199,7 +192,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
     materialFolder.close();
 
-    const aL = new THREE.AmbientLight(new THREE.Color("#000"), 1.5);
+    const aL = new THREE.AmbientLight(new THREE.Color("#fff"), 1.5);
     scene.add(aL);
 
     //fog
@@ -208,7 +201,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const data = new Uint8Array(size * size * size);
 
     let i = 0;
-    const scale = 0.05;
+    const scale = 0.01;
     const perlin = new ImprovedNoise();
     const vector = new THREE.Vector3();
 
@@ -378,13 +371,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     const fogMaterial = new THREE.RawShaderMaterial({
         glslVersion: THREE.GLSL3,
         uniforms: {
-            base: { value: new THREE.Color("red") },
+            base: { value: new THREE.Color("#041d25") },
             map: { value: texture },
             cameraPos: { value: new THREE.Vector3() },
-            threshold: { value: 0.01 },
-            opacity: { value: 0.001 },
-            range: { value: 0.1 },
-            steps: { value: 10 },
+            threshold: { value: 0.0152 },
+            opacity: { value: 0.002 },
+            range: { value: 1 },
+            steps: { value: 25 },
             frame: { value: 0 },
         },
         vertexShader,
@@ -398,7 +391,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const fogMesh = new THREE.Mesh(fogGeometry, fogMaterial);
     scene.add(fogMesh);
-    fogMesh.position.z = -4.85;
+    fogMesh.position.z = -4.92;
     fogMesh.scale.set(10, 10, 10);
     fogMaterial.uniforms.cameraPos.value = camera.position;
 
@@ -410,7 +403,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     fogFolder.add(fogMaterial.uniforms.steps, "value", 0, 100).name("fog steps");
     fogFolder.addColor({ color: "#ff0000" }, "color").onChange((value: string) => {
         fogMaterial.uniforms.base.value = new THREE.Color(value);
-        sunLight.color = new THREE.Color(value);
     });
     fogFolder.add(fogMesh.position, "z", -100, 10).name("fog z");
 
@@ -424,8 +416,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // sun
     // scene.add(sun);
-    const sunLight = new THREE.PointLight(new THREE.Color("red"), 10, 100);
-    sunLight.position.set(1, 1.5, -1);
+    const sunLight = new THREE.PointLight(new THREE.Color("#8f8f8f"), 10, 100);
+    sunLight.position.set(1, 1.5, 1);
     //shadow settings
     // sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 512;
@@ -441,6 +433,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     sunFolder.add(sunLight.shadow.camera, "far", 0, 1000);
     sunFolder.add(sunLight.shadow.mapSize, "width", 0, 2048);
     sunFolder.add(sunLight.shadow.mapSize, "height", 0, 2048);
+    sunFolder.addColor({ color: "#8f8f8f" }, "color").onChange((value: string) => {
+        sunLight.color = new THREE.Color(value);
+    });
     sunFolder.close();
 
     // post processing
@@ -455,7 +450,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         new THREE.Vector2(window.innerWidth, window.innerHeight),
         9,
         0.448,
-        0.041
+        0.001
     );
     bloomPass.renderToScreen = true;
     composer.addPass(bloomPass);
@@ -496,11 +491,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         // sun.position.set(x, y, z);
 
         // update fog material
-        fogMaterial.uniforms.threshold.value = THREE.MathUtils.lerp(
-            fogMaterial.uniforms.threshold.value,
-            0.2 + 0.1 * Math.sin(Date.now() * 0.001),
-            0.01
-        );
+        // fogMaterial.uniforms.threshold.value = THREE.MathUtils.lerp(
+        //     fogMaterial.uniforms.threshold.value,
+        //     0.2 + 0.1 * Math.sin(Date.now() * 0.001),
+        //     0.01
+        // );
 
         // controls.update();
     };
