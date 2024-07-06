@@ -519,11 +519,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             },
             {
                 z: -5,
-                duration: 3,
                 ease: "power2.inOut",
-                onComplete: () => {
-                    initA1Done = true;
-                },
+                duration: 3,
             }
         );
 
@@ -540,6 +537,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                     -dObj.mouseY - Math.PI / 2,
                     0.1
                 );
+            },
+            onComplete: () => {
+                initA1Done = true;
             },
         });
     };
