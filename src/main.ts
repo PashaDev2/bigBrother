@@ -384,7 +384,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const fOpts = {
         scale: 10,
     };
-    fogFolder.add(fOpts, "scale", 0, 10).onChange(value => {
+    fogFolder.add(fOpts, "scale", 0, 10).onChange((value: number) => {
         fogMesh.scale.set(value, value, value);
     });
     fogFolder.close();
@@ -421,7 +421,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const opt = {
         scale: 1,
     };
-    sunFolder.add(opt, "scale", 0, 10).onChange(value => {
+    sunFolder.add(opt, "scale", 0, 10).onChange((value: number) => {
         sun.scale.set(value, value, value);
     });
     sunFolder.close();
