@@ -499,7 +499,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         tl.to(dObj, {
             mouseX: 0.5,
             mouseY: 0.5,
-            duration: 2,
+            duration: 1,
             ease: "power4.inOut",
             onUpdate: () => {
                 // rotate helm
@@ -520,7 +520,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             {
                 z: -5,
                 ease: "power2.inOut",
-                duration: 3,
+                duration: 1.5,
             }
         );
 
