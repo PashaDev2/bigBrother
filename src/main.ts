@@ -1,8 +1,6 @@
-import { cameraPosition } from "three/examples/jsm/nodes/Nodes.js";
 import {
     EffectComposer,
     GLTFLoader,
-    ImprovedNoise,
     OrbitControls,
     RenderPass,
     ShaderPass,
