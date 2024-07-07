@@ -6,7 +6,7 @@ import {
     ShaderPass,
     UnrealBloomPass,
 } from "three/examples/jsm/Addons.js";
-import { VignetteShader } from "./VignetteShader";
+import { VignetteShader } from "./VignetteShader.ts";
 import Stats from "three/examples/jsm/libs/stats.module.js";
 import "./style.css";
 import * as THREE from "three";
