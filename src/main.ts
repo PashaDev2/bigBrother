@@ -30,10 +30,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    // renderer.shadowMap.enabled = true;
-    // renderer.shadowMap.type = THREE.PCFSoftShadowMap; // default THREE.PCFShadowMap
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.domElement.style.transition = "filter 1s cubic-bezier(0.23, 1, 0.32, 1)";
     document.body.appendChild(renderer.domElement);
 
     const loader = new GLTFLoader();
@@ -555,6 +554,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         eyesMaterial.uniforms.uMouse.value.y = y;
         eyesMaterial.uniforms.uTime.value += d;
 
+        // move sun light to mouse
+        sunLight.position.x = THREE.MathUtils.lerp(sunLight.position.x, x, 0.1);
+        sunLight.position.y = THREE.MathUtils.lerp(sunLight.position.y, y, 0.1);
+
         // rotate helm
         helm.rotation.z = THREE.MathUtils.lerp(helm.rotation.z, x, 0.1);
         helm.rotation.x = THREE.MathUtils.lerp(helm.rotation.x, -y - Math.PI / 2, 0.1);
@@ -583,7 +586,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         const dObj = {
             mouseX: helm.rotation.z,
             mouseY: -helm.rotation.x - Math.PI / 2,
+            blur: 100,
         };
+
+        gsap.to(dObj, {
+            blur: 0,
+            duration: 2,
+            ease: "linear",
+            onUpdate: () => {
+                renderer.domElement.style.filter = `blur(${dObj.blur}px)`;
+            },
+        });
 
         tl.to(dObj, {
             mouseX: 0.5,
